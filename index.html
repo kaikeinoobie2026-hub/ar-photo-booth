@@ -1,7 +1,6 @@
 
 <!doctype html>
 <html lang="ja">
-
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -28,31 +27,27 @@
       object-fit: cover;
     }
 
-    #camera {
-      z-index: 0;
-    }
-
     #stage {
-      z-index: 1;
       pointer-events: auto;
+      touch-action: none;
     }
 
     #ui {
       position: fixed;
-      z-index: 5;
+      z-index: 2;
       top: 12px;
       left: 12px;
       right: 12px;
 
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     button,
     select {
-      padding: 10px 12px;
+      padding: 10px 14px;
       border: 0;
       border-radius: 999px;
       font-size: 15px;
@@ -63,41 +58,38 @@
     }
 
     #hint {
-      width: 100%;
       color: white;
       font-size: 11px;
-      text-shadow: 0 1px 3px black;
+      text-shadow: 0 1px 3px #000;
     }
 
     #status {
       position: fixed;
-      z-index: 5;
+      z-index: 2;
       bottom: 12px;
       left: 12px;
       right: 12px;
 
       padding: 10px;
       color: white;
-      background: #000b;
+      background: #0009;
       border-radius: 12px;
       font-size: 12px;
     }
   </style>
 
   <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
     }
-  }
   </script>
 </head>
 
 <body>
-
   <video id="camera" autoplay playsinline muted></video>
-
   <canvas id="stage"></canvas>
 
   <div id="ui">
@@ -110,7 +102,7 @@
     </select>
 
     <span id="hint">
-      楽器を指でドラッグして移動できます
+      楽器のフレームを指でドラッグして移動できます
     </span>
   </div>
 
@@ -118,84 +110,24 @@
     カメラを起動してください。
   </div>
 
-
   <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-    import * as THREE from "three";
+    // 配置済みの楽器が入っているGLBファイル
+    const MODEL_FILE = '配置済み楽器.glb';
 
-    import {
-      GLTFLoader
-    } from "three/addons/loaders/GLTFLoader.js";
+    const video = document.querySelector('#camera');
+    const canvas = document.querySelector('#stage');
+    const status = document.querySelector('#status');
+    const startButton = document.querySelector('#start');
 
-
-    // =====================================
-    // 楽器ファイル
-    // =====================================
-
-    const files = [
-      "Alto sax 2.glb",
-      "Alto Sax gold.glb",
-      "ClarineteAR用.glb",
-      "drum AR用.glb",
-      "FluteAR用.glb",
-      "French Horn.glb",
-      "トロンボーン.glb",
-      "Trumpet.glb",
-      "tuba AR用.glb"
-    ];
-
-
-    // =====================================
-    // 楽器の配置
-    // 画面中央に近い配置
-    // =====================================
-
-    const positions = [
-
-      [-0.55, 0.45, 0.36],
-      [ 0.55, 0.45, 0.34],
-
-      [-0.60, 0.10, 0.34],
-      [ 0.60, 0.10, 0.42],
-
-      [-0.55, -0.25, 0.42],
-      [ 0.55, -0.25, 0.30],
-
-      [-0.30, 0.70, 0.27],
-      [ 0.30, 0.70, 0.38],
-
-      [ 0.00, -0.60, 0.48]
-
-    ];
-
-
-    // =====================================
-    // HTML要素
-    // =====================================
-
-    const video =
-      document.querySelector("#camera");
-
-    const canvas =
-      document.querySelector("#stage");
-
-    const status =
-      document.querySelector("#status");
-
-    const startButton =
-      document.querySelector("#start");
-
-
-    // =====================================
-    // Three.js設定
-    // =====================================
-
-    const renderer =
-      new THREE.WebGLRenderer({
-        canvas: canvas,
-        alpha: true,
-        antialias: true
-      });
+    // レンダラー
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      alpha: true,
+      antialias: true
+    });
 
     renderer.setPixelRatio(
       Math.min(window.devicePixelRatio || 1, 2)
@@ -207,532 +139,223 @@
       false
     );
 
+    // シーン
+    const scene = new THREE.Scene();
 
-    const scene =
-      new THREE.Scene();
-
-
-    // カメラ距離は安全な値に設定
-    const camera =
-      new THREE.PerspectiveCamera(
-        35,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        100
-      );
-
-    camera.position.set(
-      0,
-      0,
-      8
+    // カメラ
+    const camera = new THREE.PerspectiveCamera(
+      35,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
     );
 
+    camera.position.set(0, 0, 8);
 
-    // =====================================
     // ライト
-    // =====================================
-
-    const ambientLight =
-      new THREE.AmbientLight(
-        0xffffff,
-        2.5
-      );
+    const ambientLight = new THREE.AmbientLight(
+      0xffffff,
+      2.5
+    );
 
     scene.add(ambientLight);
 
-
-    const directionalLight =
-      new THREE.DirectionalLight(
-        0xffffff,
-        2.5
-      );
-
-    directionalLight.position.set(
-      2,
-      4,
-      6
+    const directionalLight = new THREE.DirectionalLight(
+      0xffffff,
+      2.5
     );
 
+    directionalLight.position.set(2, 4, 6);
     scene.add(directionalLight);
 
+    // GLB全体を入れるグループ
+    const modelGroup = new THREE.Group();
+    scene.add(modelGroup);
 
-    // =====================================
-    // 楽器グループ
-    // =====================================
+    const loader = new GLTFLoader();
 
-    const group =
-      new THREE.Group();
+    let loadedModel = null;
+    let isLoaded = false;
 
-    scene.add(group);
-
-
-    const movable = [];
-
-    const loader =
-      new GLTFLoader();
-
-
-    let selected = null;
-
+    // ドラッグ操作用
     let dragging = false;
-
     let lastPointer = null;
 
-
-    // =====================================
-    // カメラ起動と楽器読み込み
-    // =====================================
-
-    startButton.addEventListener(
-      "click",
-      async () => {
-
-        startButton.disabled = true;
-
-        try {
-
-          if (
-            !navigator.mediaDevices ||
-            !navigator.mediaDevices.getUserMedia
-          ) {
-
-            throw new Error(
-              "カメラ機能に対応していません"
-            );
-
-          }
-
-
-          status.textContent =
-            "カメラを起動しています…";
-
-
-          const stream =
-            await navigator.mediaDevices.getUserMedia({
-              video: {
-                facingMode: {
-                  ideal: "environment"
-                }
-              },
-              audio: false
-            });
-
-
-          video.srcObject = stream;
-
-          await video.play();
-
-
-          status.textContent =
-            "楽器を読み込んでいます…";
-
-
-          // =================================
-          // 楽器を1つずつ読み込む
-          // =================================
-
-          for (
-            let i = 0;
-            i < files.length;
-            i++
-          ) {
-
-            try {
-
-              const filePath =
-                "./assets/" +
-                encodeURIComponent(files[i]);
-
-
-              const gltf =
-                await loader.loadAsync(filePath);
-
-
-              const model =
-                gltf.scene;
-
-
-              // モデルのサイズを初期化
-              model.scale.setScalar(1);
-
-              model.updateMatrixWorld(true);
-
-
-              // モデルの外接ボックス
-              const originalBox =
-                new THREE.Box3().setFromObject(
-                  model
-                );
-
-
-              const originalSize =
-                originalBox.getSize(
-                  new THREE.Vector3()
-                );
-
-
-              const maxDimension =
-                Math.max(
-                  originalSize.x,
-                  originalSize.y,
-                  originalSize.z
-                ) || 1;
-
-
-              // 表示サイズ
-              // 大きすぎない安全なサイズ
-              const targetSize =
-                positions[i][2] * 1.8;
-
-
-              const scale =
-                targetSize / maxDimension;
-
-
-              model.scale.setScalar(scale);
-
-              model.updateMatrixWorld(true);
-
-
-              // サイズ変更後に中心を再計算
-              const newBox =
-                new THREE.Box3().setFromObject(
-                  model
-                );
-
-
-              const center =
-                newBox.getCenter(
-                  new THREE.Vector3()
-                );
-
-
-              // 配置位置
-              model.position.set(
-                positions[i][0],
-                positions[i][1],
-                0
-              );
-
-
-              // モデルの中心を補正
-              model.position.x -=
-                center.x;
-
-              model.position.y -=
-                center.y;
-
-
-              // 少しだけ回転
-              model.rotation.y = 0.45;
-
-
-              // シーンに追加
-              group.add(model);
-
-              movable.push(model);
-
-
-              status.textContent =
-                `読み込み中 ${i + 1}/9`;
-
-
-            } catch (modelError) {
-
-              console.error(
-                "楽器読み込みエラー:",
-                files[i],
-                modelError
-              );
-
-
-              status.textContent =
-                `${files[i]} を読み込めませんでした`;
-
-            }
-
-          }
-
-
-          if (movable.length > 0) {
-
-            status.textContent =
-              `${movable.length}個の楽器を表示しました。`;
-
-          } else {
-
-            status.textContent =
-              "楽器が読み込めませんでした。assetsフォルダを確認してください。";
-
-          }
-
-
-        } catch (error) {
-
-          console.error(error);
-
-
-          status.textContent =
-            "起動できませんでした。カメラの許可とHTTPSを確認してください。";
-
-
-          startButton.disabled = false;
-
-        }
-
-      }
-    );
-
-
-    // =====================================
-    // 楽器選択
-    // =====================================
-
-    const raycaster =
-      new THREE.Raycaster();
-
-    const pointer =
-      new THREE.Vector2();
-
-
-    function pick(clientX, clientY) {
-
-      const rect =
-        canvas.getBoundingClientRect();
-
-
-      pointer.x =
-        ((clientX - rect.left) / rect.width) * 2 - 1;
-
-
-      pointer.y =
-        -((clientY - rect.top) / rect.height) * 2 + 1;
-
-
-      raycaster.setFromCamera(
-        pointer,
-        camera
-      );
-
-
-      const hits =
-        raycaster.intersectObjects(
-          movable,
-          true
-        );
-
-
-      if (hits.length === 0) {
-
-        return null;
-
-      }
-
-
-      let object =
-        hits[0].object;
-
-
-      while (
-        object.parent &&
-        object.parent !== group
-      ) {
-
-        object =
-          object.parent;
-
-      }
-
-
-      return object;
-
-    }
-
-
-    // =====================================
-    // 楽器の移動
-    // =====================================
-
-    function moveSelected(dx, dy) {
-
-      if (!selected) {
-
-        return;
-
-      }
-
-
-      const movementFactor =
-        0.012;
-
-
-      selected.position.x +=
-        dx * movementFactor;
-
-
-      selected.position.y -=
-        dy * movementFactor;
-
-    }
-
-
-    // =====================================
-    // タッチ・マウス操作
-    // =====================================
-
-    canvas.addEventListener(
-      "pointerdown",
-      (event) => {
-
-        const hit =
-          pick(
-            event.clientX,
-            event.clientY
+    // カメラ起動・GLB読み込み
+    startButton.addEventListener('click', async () => {
+      startButton.disabled = true;
+
+      try {
+        if (
+          !navigator.mediaDevices ||
+          !navigator.mediaDevices.getUserMedia
+        ) {
+          throw new Error(
+            'このブラウザではカメラを利用できません'
           );
-
-
-        if (!hit) {
-
-          return;
-
         }
 
+        // カメラ起動
+        status.textContent = 'カメラを起動しています…';
 
-        selected =
-          hit;
+        const stream =
+          await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: {
+                ideal: 'environment'
+              }
+            },
+            audio: false
+          });
 
-        dragging =
-          true;
+        video.srcObject = stream;
+        await video.play();
 
+        // GLB読み込み
+        status.textContent = '配置済みの楽器を読み込んでいます…';
 
-        lastPointer = {
-          x: event.clientX,
-          y: event.clientY
-        };
+        const filePath =
+          './assets/' + encodeURIComponent(MODEL_FILE);
 
+        const gltf = await loader.loadAsync(filePath);
 
-        canvas.setPointerCapture?.(
-          event.pointerId
+        loadedModel = gltf.scene;
+
+        // モデルのサイズを計測
+        loadedModel.scale.setScalar(1);
+        loadedModel.updateMatrixWorld(true);
+
+        const box = new THREE.Box3()
+          .setFromObject(loadedModel);
+
+        const size = box.getSize(
+          new THREE.Vector3()
         );
 
+        const center = box.getCenter(
+          new THREE.Vector3()
+        );
+
+        const maxDimension = Math.max(
+          size.x,
+          size.y,
+          size.z
+        ) || 1;
+
+        // 画面に収まる大きさに自動調整
+        const targetSize = 5.2;
+
+        loadedModel.scale.setScalar(
+          targetSize / maxDimension
+        );
+
+        loadedModel.updateMatrixWorld(true);
+
+        // GLB全体を中央に配置
+        loadedModel.position.set(
+          -center.x * loadedModel.scale.x,
+          -center.y * loadedModel.scale.y,
+          -center.z * loadedModel.scale.z
+        );
+
+        // 全体の回転
+        loadedModel.rotation.y = 0.45;
+
+        modelGroup.add(loadedModel);
+
+        isLoaded = true;
 
         status.textContent =
-          "楽器を移動中";
+          '楽器を表示しました。フレームをドラッグできます。';
 
+      } catch (error) {
+        console.error(error);
+
+        status.textContent =
+          '読み込みに失敗しました。カメラの許可、HTTPS、GLBの配置を確認してください。';
+
+        startButton.disabled = false;
       }
-    );
+    });
 
+    // GLB全体をドラッグして移動
+    canvas.addEventListener('pointerdown', (event) => {
+      if (!isLoaded) return;
 
-    canvas.addEventListener(
-      "pointermove",
-      (event) => {
+      dragging = true;
 
-        if (
-          !dragging ||
-          !selected ||
-          !lastPointer
-        ) {
+      lastPointer = {
+        x: event.clientX,
+        y: event.clientY
+      };
 
-          return;
+      canvas.setPointerCapture?.(event.pointerId);
 
-        }
+      status.textContent = 'フレームを移動中…';
+    });
 
-
-        moveSelected(
-          event.clientX - lastPointer.x,
-          event.clientY - lastPointer.y
-        );
-
-
-        lastPointer = {
-          x: event.clientX,
-          y: event.clientY
-        };
-
+    canvas.addEventListener('pointermove', (event) => {
+      if (!dragging || !lastPointer || !isLoaded) {
+        return;
       }
-    );
 
+      const deltaX =
+        event.clientX - lastPointer.x;
+
+      const deltaY =
+        event.clientY - lastPointer.y;
+
+      // ドラッグ量に応じてGLB全体を移動
+      const moveFactor = 0.012;
+
+      modelGroup.position.x +=
+        deltaX * moveFactor;
+
+      modelGroup.position.y -=
+        deltaY * moveFactor;
+
+      lastPointer = {
+        x: event.clientX,
+        y: event.clientY
+      };
+    });
 
     function endDrag() {
+      dragging = false;
+      lastPointer = null;
 
-      dragging =
-        false;
-
-      lastPointer =
-        null;
-
-
-      if (selected) {
-
+      if (isLoaded) {
         status.textContent =
-          "楽器を指で移動できます。";
-
+          'フレームを指で移動できます。';
       }
-
     }
 
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+    canvas.addEventListener('pointerleave', endDrag);
 
-    canvas.addEventListener(
-      "pointerup",
-      endDrag
-    );
-
-    canvas.addEventListener(
-      "pointercancel",
-      endDrag
-    );
-
-    canvas.addEventListener(
-      "pointerleave",
-      endDrag
-    );
-
-
-    // =====================================
-    // 画面サイズ変更
-    // =====================================
-
-    window.addEventListener(
-      "resize",
-      () => {
-
-        renderer.setSize(
-          window.innerWidth,
-          window.innerHeight,
-          false
-        );
-
-
-        camera.aspect =
-          window.innerWidth /
-          window.innerHeight;
-
-
-        camera.updateProjectionMatrix();
-
-      }
-    );
-
-
-    // =====================================
-    // 描画ループ
-    // =====================================
-
-    function animate() {
-
-      requestAnimationFrame(animate);
-
-      renderer.render(
-        scene,
-        camera
+    // 画面サイズ変更対応
+    window.addEventListener('resize', () => {
+      renderer.setSize(
+        window.innerWidth,
+        window.innerHeight,
+        false
       );
 
+      camera.aspect =
+        window.innerWidth / window.innerHeight;
+
+      camera.updateProjectionMatrix();
+    });
+
+    // 描画ループ
+    function animate() {
+      requestAnimationFrame(animate);
+
+      renderer.render(scene, camera);
     }
 
-
     animate();
-
   </script>
-
 </body>
 </html>
